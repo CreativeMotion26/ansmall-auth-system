@@ -1,6 +1,31 @@
 const out = document.getElementById("out");
 const statusEl = document.getElementById("status");
 
+const STORAGE_ACCESS = "ansmall_access";
+const STORAGE_REFRESH = "ansmall_refresh";
+
+function getAccess() {
+  return localStorage.getItem(STORAGE_ACCESS) || "";
+}
+
+function getRefresh() {
+  return localStorage.getItem(STORAGE_REFRESH) || "";
+}
+
+function saveTokensFromResponse(body) {
+  if (body?.accessToken) {
+    localStorage.setItem(STORAGE_ACCESS, body.accessToken);
+  }
+  if (body?.refreshToken) {
+    localStorage.setItem(STORAGE_REFRESH, body.refreshToken);
+  }
+}
+
+function clearTokens() {
+  localStorage.removeItem(STORAGE_ACCESS);
+  localStorage.removeItem(STORAGE_REFRESH);
+}
+
 function setStatus(isLoggedIn, email) {
   if (!statusEl) return;
   if (!isLoggedIn) {
@@ -16,15 +41,19 @@ function show(payload, isError) {
   out.className = isError ? "err" : "";
 }
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
+function showPayload(res, body, isError) {
+  show({ status: res.status, ok: res.ok, body }, isError);
+}
+
+async function fetchAuth(path, options = {}, useBearer = false) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+  if (useBearer && getAccess()) {
+    headers.Authorization = `Bearer ${getAccess()}`;
+  }
+  const res = await fetch(path, { ...options, headers });
   const text = await res.text();
   let body;
   try {
@@ -32,54 +61,113 @@ async function api(path, options = {}) {
   } catch {
     body = text;
   }
-  const payload = { status: res.status, ok: res.ok, body };
-  if (!res.ok) {
-    show(payload, true);
-    throw new Error(res.statusText);
-  }
-  show(payload, false);
-  return body;
+  return { res, body };
 }
 
 async function refreshMe() {
-  try {
-    const data = await api("/api/me", { method: "GET" });
-    setStatus(true, data?.user?.email);
-  } catch {
-    setStatus(false);
+  const first = await fetchAuth("/api/me", { method: "GET" }, true);
+  if (first.res.ok) {
+    showPayload(first.res, first.body, false);
+    setStatus(true, first.body?.user?.email);
+    return;
   }
+
+  showPayload(first.res, first.body, true);
+
+  if (first.res.status === 401 && getRefresh()) {
+    const rotated = await fetchAuth("/api/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: getRefresh() }),
+    });
+    if (rotated.res.ok) {
+      saveTokensFromResponse(rotated.body);
+      showPayload(rotated.res, rotated.body, false);
+      const second = await fetchAuth("/api/me", { method: "GET" }, true);
+      if (second.res.ok) {
+        showPayload(second.res, second.body, false);
+        setStatus(true, second.body?.user?.email);
+        return;
+      }
+      showPayload(second.res, second.body, true);
+    }
+  }
+
+  clearTokens();
+  setStatus(false);
 }
 
-document.getElementById("btnRegister").onclick = () => {
+document.getElementById("btnRegister").onclick = async () => {
   const email = document.getElementById("regEmail").value;
   const password = document.getElementById("regPassword").value;
-  api("/api/register", {
+  const { res, body } = await fetchAuth("/api/register", {
     method: "POST",
     body: JSON.stringify({ email, password }),
-  })
-    .then(() => refreshMe())
-    .catch(() => {});
+  });
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    saveTokensFromResponse(body);
+    setStatus(true, body?.user?.email);
+  }
 };
 
-document.getElementById("btnLogin").onclick = () => {
+document.getElementById("btnLogin").onclick = async () => {
   const email = document.getElementById("loginEmail").value;
   const password = document.getElementById("loginPassword").value;
-  api("/api/login", {
+  const { res, body } = await fetchAuth("/api/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
-  })
-    .then(() => refreshMe())
-    .catch(() => {});
+  });
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    saveTokensFromResponse(body);
+    setStatus(true, body?.user?.email);
+  }
 };
 
 document.getElementById("btnMe").onclick = () => {
   refreshMe().catch(() => {});
 };
 
-document.getElementById("btnLogout").onclick = () => {
-  api("/api/logout", { method: "POST" })
-    .then(() => refreshMe())
-    .catch(() => {});
+document.getElementById("btnRefresh").onclick = async () => {
+  if (!getRefresh()) {
+    show(
+      {
+        status: 0,
+        ok: false,
+        body: { error: "No refresh token in localStorage" },
+      },
+      true,
+    );
+    return;
+  }
+  const { res, body } = await fetchAuth("/api/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken: getRefresh() }),
+  });
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    saveTokensFromResponse(body);
+    setStatus(true, body?.user?.email);
+  }
+};
+
+document.getElementById("btnLogout").onclick = async () => {
+  if (!getRefresh()) {
+    show(
+      { status: 400, ok: false, body: { error: "No refresh token stored" } },
+      true,
+    );
+    clearTokens();
+    setStatus(false);
+    return;
+  }
+  const { res, body } = await fetchAuth("/api/logout", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken: getRefresh() }),
+  });
+  showPayload(res, body, !res.ok);
+  clearTokens();
+  setStatus(false);
 };
 
 refreshMe().catch(() => {});

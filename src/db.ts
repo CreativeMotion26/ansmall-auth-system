@@ -11,14 +11,9 @@ fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new Database(dbPath);
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-`);
+const schemaPath = path.join(__dirname, "..", "sql", "schema.sql");
+const schemaSql = fs.readFileSync(schemaPath, "utf8");
+db.exec(schemaSql);
 
 export type UserRow = {
   id: number;
@@ -55,4 +50,33 @@ export function createUser(email: string, passwordHash: string): UserRow {
     throw new Error("Failed to create user");
   }
   return user;
+}
+
+export function insertRefreshToken(
+  userId: number,
+  tokenHash: string,
+  expiresAtUnix: number,
+): void {
+  db.prepare(
+    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`,
+  ).run(userId, tokenHash, expiresAtUnix);
+}
+
+export function findValidRefreshTokenUserId(
+  tokenHash: string,
+  nowUnix: number,
+): number | null {
+  const row = db
+    .prepare(
+      `SELECT user_id FROM refresh_tokens WHERE token_hash = ? AND expires_at > ?`,
+    )
+    .get(tokenHash, nowUnix) as { user_id: number } | undefined;
+  return row ? row.user_id : null;
+}
+
+export function deleteRefreshTokenByHash(tokenHash: string): number {
+  const info = db
+    .prepare(`DELETE FROM refresh_tokens WHERE token_hash = ?`)
+    .run(tokenHash);
+  return info.changes;
 }

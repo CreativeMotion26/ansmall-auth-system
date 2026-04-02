@@ -38,8 +38,10 @@
   <body>
     <h1>Auth demo</h1>
     <p>
-      This page talks to the API with
-      <code>credentials: "include"</code> so the session cookie is sent.
+      After login or register, the page stores
+      <code>accessToken</code> and <code>refreshToken</code> in
+      <code>localStorage</code>. Protected calls use
+      <code>Authorization: Bearer …</code>.
     </p>
     <p>
       Status:
@@ -66,9 +68,10 @@
     </section>
 
     <section>
-      <h2>Session</h2>
+      <h2>Tokens</h2>
       <button type="button" id="btnMe">GET /api/me</button>
-      <button type="button" id="btnLogout">Logout</button>
+      <button type="button" id="btnRefresh">POST /api/refresh</button>
+      <button type="button" id="btnLogout">Logout (revoke refresh)</button>
     </section>
 
     <h2>Response</h2>
