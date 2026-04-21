@@ -1,18 +1,3 @@
-/**
- * How does this file work?
- * 
- * This is the main frontend authentication logic for interacting with the backend API.
- * 
- * It manages:
- *   - UI updates and status messages for login/register/logout.
- *   - Storage/retrieval of JWT access and refresh tokens in localStorage.
- *   - Sending authenticated fetch requests with the proper Bearer token header.
- *   - Automatically handles token refresh when the access token expires.
- *   - Utility functions to show response data or errors in the page.
- *   - Button event handlers for login, register, fetch-me, refresh, and logout actions.
- * 
- * On page load, it attempts to refresh the session automatically.
- */
 
 // -- DOM Element References --
 const out = document.getElementById("out");       // Output box for showing API responses
