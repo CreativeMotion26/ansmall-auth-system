@@ -1,7 +1,3 @@
-// In-memory user "database" for demo use only.
-// Each user: { id: number, email: string, passwordHash: string }
-// NOTE: Passwords should always be hashed, NEVER store plaintext passwords.
-
 let nextId = 1;
 const users = [];
 
