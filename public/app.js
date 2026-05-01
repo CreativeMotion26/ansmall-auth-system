@@ -1,13 +1,12 @@
 
 
-const out = document.getElementById("out");       // Output box for showing API responses
-const statusEl = document.getElementById("status"); // Status display text element
+const out = document.getElementById("out");       
+const statusEl = document.getElementById("status"); 
 
 // -- Keys for localStorage --
 const STORAGE_ACCESS = "ansmall_access";   // access token key
 const STORAGE_REFRESH = "ansmall_refresh"; // refresh token key
 
-// -- Helpers for token management --
 
 // Get access token from localStorage
 function getAccess() {
