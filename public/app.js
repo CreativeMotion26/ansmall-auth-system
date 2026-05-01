@@ -1,5 +1,5 @@
 
-// -- DOM Element References --
+
 const out = document.getElementById("out");       // Output box for showing API responses
 const statusEl = document.getElementById("status"); // Status display text element
 
