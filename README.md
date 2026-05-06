@@ -7,7 +7,7 @@ Small learning project: **register**, **login**, **logout**, and **`GET /api/me`
 
 The demo page keeps tokens in **`localStorage`** (fine for learning; production SPAs often prefer `httpOnly` cookies for refresh tokens to reduce XSS impact).
 
-The database layout is in **`sql/schema.sql`** (applied on startup).
+The database layout is in **`services/auth/sql/schema.sql`** (applied on startup).
 
 ## Run locally
 
@@ -34,10 +34,10 @@ Rate limit: **50 requests / 15 minutes** per IP on `/api/register`, `/api/login`
 
 ## Layout
 
-- `src/server.ts` — Express app, static files
-- `src/tokens.ts` — JWT sign/verify, refresh token generation + hashing
-- `sql/schema.sql` — SQL DDL
-- `src/db.ts` — DB + refresh token rows
-- `src/routes/auth.ts` — auth handlers
-- `src/middleware/requireAuth.ts` — Bearer JWT guard
-- `public/` — demo page (`index.html`, `app.js`)
+- `services/auth/` — auth microservice (API + SQLite)
+- `services/gateway/` — gateway microservice (serves demo page + proxies `/api/*` to auth)
+
+### Ports
+
+- Gateway: `localhost:3000`
+- Auth service: `localhost:3001`
