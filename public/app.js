@@ -3,7 +3,7 @@
 const out = document.getElementById("out");       
 const statusEl = document.getElementById("status"); 
 
-// -- Keys for localStorage --
+
 const STORAGE_ACCESS = "ansmall_access";   // access token key
 const STORAGE_REFRESH = "ansmall_refresh"; // refresh token key
 
