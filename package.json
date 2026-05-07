@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "concurrently -n auth,gateway -c blue,green \"npm -w services/auth run dev\" \"npm -w services/gateway run dev\"",
     "build": "npm -w services/auth run build && npm -w services/gateway run build",
-    "start": "npm -w services/auth run start && npm -w services/gateway run start"
+    "start": "npm -w services/auth run start && npm -w services/gateway run start",
+    "dev:mobile": "npm -w mobile run start",
+    "dev:mobile:web": "npm -w mobile run web"
   },
   "workspaces": [
-    "services/*"
+    "services/*",
+    "apps/*"
   ],
   "dependencies": {},
   "devDependencies": {
