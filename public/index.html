@@ -6,11 +6,44 @@
     <title>ansmall-auth demo</title>
     <style>
       :root {
-        font-family: system-ui, sans-serif;
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
         line-height: 1.5;
-        max-width: 32rem;
+        max-width: 64rem;
         margin: 2rem auto;
         padding: 0 1rem;
+      }
+      body {
+        margin: 0;
+        padding: 2rem 0;
+      }
+      h1 {
+        margin: 0 0 0.5rem 0;
+      }
+      .muted {
+        opacity: 0.8;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      @media (min-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .card {
+        border: 1px solid rgba(127, 127, 127, 0.35);
+        border-radius: 14px;
+        padding: 1rem;
+        background: rgba(127, 127, 127, 0.08);
+      }
+      .row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
       }
       label {
         display: block;
@@ -24,11 +57,13 @@
       button {
         margin-top: 0.75rem;
         padding: 0.4rem 0.75rem;
+        cursor: pointer;
       }
       pre {
-        background: #f4f4f4;
+        background: rgba(127, 127, 127, 0.12);
         padding: 0.75rem;
         overflow: auto;
+        border-radius: 10px;
       }
       .err {
         color: #b00020;
@@ -36,46 +71,64 @@
     </style>
   </head>
   <body>
-    <h1>Auth demo</h1>
-    <p>
-      After login or register, the page stores
-      <code>accessToken</code> and <code>refreshToken</code> in
-      <code>localStorage</code>. Protected calls use
-      <code>Authorization: Bearer …</code>.
-    </p>
-    <p>
-      Status:
-      <strong id="status">checking...</strong>
+    <h1>ansmall-auth demo</h1>
+    <p class="muted">
+      Learning demo for <strong>register</strong>, <strong>login</strong>,
+      <strong>logout</strong>, and <code>GET /api/me</code> using a short-lived JWT
+      access token plus a rotating refresh token stored (hashed) server-side.
     </p>
 
-    <section>
-      <h2>Register</h2>
-      <label>Email <input type="email" id="regEmail" autocomplete="email" /></label>
-      <label
-        >Password (min 8 chars)
-        <input type="password" id="regPassword" autocomplete="new-password"
-      /></label>
-      <button type="button" id="btnRegister">Register</button>
+    <div class="card">
+      Status: <strong id="status">checking...</strong>
+      <div class="muted" id="statusDetail"></div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2 style="margin-top: 0">Credentials</h2>
+        <div class="row">
+          <label style="flex: 1; min-width: 16rem"
+            >Email
+            <input type="email" id="email" autocomplete="email" placeholder="you@example.com" />
+          </label>
+          <label style="flex: 1; min-width: 16rem"
+            >Password (min 8 chars)
+            <input type="password" id="password" autocomplete="current-password" />
+          </label>
+        </div>
+        <div class="row">
+          <button type="button" id="btnRegister">POST /api/register</button>
+          <button type="button" id="btnLogin">POST /api/login</button>
+        </div>
+        <p class="muted" style="margin-bottom: 0">
+          Rate limit: 50 requests / 15 minutes per IP on register/login/refresh.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2 style="margin-top: 0">Session actions</h2>
+        <div class="row">
+          <button type="button" id="btnMe">GET /api/me</button>
+          <button type="button" id="btnRefresh">POST /api/refresh</button>
+          <button type="button" id="btnLogout">POST /api/logout</button>
+          <button type="button" id="btnClear">Clear local tokens</button>
+        </div>
+        <p class="muted" style="margin-bottom: 0">
+          Protected calls use <code>Authorization: Bearer &lt;accessToken&gt;</code>.
+          This page stores tokens in <code>localStorage</code> (fine for learning).
+        </p>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2 style="margin-top: 0">Stored tokens (localStorage)</h2>
+      <pre id="tokens">(none yet)</pre>
     </section>
 
-    <section>
-      <h2>Login</h2>
-      <label>Email <input type="email" id="loginEmail" autocomplete="email" /></label>
-      <label
-        >Password <input type="password" id="loginPassword" autocomplete="current-password"
-      /></label>
-      <button type="button" id="btnLogin">Login</button>
+    <section class="card">
+      <h2 style="margin-top: 0">Last response</h2>
+      <pre id="out">(none yet)</pre>
     </section>
-
-    <section>
-      <h2>Refresh Tokens</h2>
-      <button type="button" id="btnMe">GET /api/me</button>
-      <button type="button" id="btnRefresh">POST /api/refresh</button>
-      <button type="button" id="btnLogout">Logout (revoke refresh)</button>
-    </section>
-
-    <h2>Response check</h2>
-    <pre id="out">(none yet)</pre>
 
     <script src="/app.js"></script>
   </body>
