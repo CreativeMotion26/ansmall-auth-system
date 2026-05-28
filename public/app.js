@@ -1,205 +1,233 @@
+const out = document.getElementById("out");
+const tokensEl = document.getElementById("tokens");
+const statusEl = document.getElementById("status");
+const statusDetailEl = document.getElementById("statusDetail");
 
+// New keys (preferred)
+const STORAGE_ACCESS = "ansmall_access";
+const STORAGE_REFRESH = "ansmall_refresh";
 
-const out = document.getElementById("out");       
-const statusEl = document.getElementById("status"); 
+// Old keys (kept for backward compatibility with earlier demo page)
+const STORAGE_ACCESS_LEGACY = "accessToken";
+const STORAGE_REFRESH_LEGACY = "refreshToken";
 
-
-const STORAGE_ACCESS = "ansmall_access";   // access token key
-const STORAGE_REFRESH = "ansmall_refresh"; // refresh token key
-
-
-// Get access token from localStorage
-function getAccess() {
-  return localStorage.getItem(STORAGE_ACCESS) || "";
+function getTokens() {
+  const accessToken =
+    localStorage.getItem(STORAGE_ACCESS) ||
+    localStorage.getItem(STORAGE_ACCESS_LEGACY) ||
+    "";
+  const refreshToken =
+    localStorage.getItem(STORAGE_REFRESH) ||
+    localStorage.getItem(STORAGE_REFRESH_LEGACY) ||
+    "";
+  return { accessToken, refreshToken };
 }
 
-// Get refresh token from localStorage
-function getRefresh() {
-  return localStorage.getItem(STORAGE_REFRESH) || "";
-}
-
-// Save access and/or refresh tokens from backend response
-function saveTokensFromResponse(body) {
-  if (body?.accessToken) {
-    localStorage.setItem(STORAGE_ACCESS, body.accessToken);
+function setTokens({ accessToken, refreshToken }) {
+  if (typeof accessToken === "string" && accessToken) {
+    localStorage.setItem(STORAGE_ACCESS, accessToken);
+    localStorage.setItem(STORAGE_ACCESS_LEGACY, accessToken);
   }
-  if (body?.refreshToken) {
-    localStorage.setItem(STORAGE_REFRESH, body.refreshToken);
+  if (typeof refreshToken === "string" && refreshToken) {
+    localStorage.setItem(STORAGE_REFRESH, refreshToken);
+    localStorage.setItem(STORAGE_REFRESH_LEGACY, refreshToken);
   }
+  renderTokens();
 }
 
-// Clear both tokens from localStorage
 function clearTokens() {
   localStorage.removeItem(STORAGE_ACCESS);
   localStorage.removeItem(STORAGE_REFRESH);
+  localStorage.removeItem(STORAGE_ACCESS_LEGACY);
+  localStorage.removeItem(STORAGE_REFRESH_LEGACY);
+  renderTokens();
 }
 
-// -- UI helpers --
-
-// Update the status text in the DOM based on login state/email
-function setStatus(isLoggedIn, email) {
-  if (!statusEl) return;
-  if (!isLoggedIn) {
-    statusEl.textContent = "logged out";
-    return;
-  }
-  statusEl.textContent = email ? `logged in as ${email}` : "logged in";
+function renderTokens() {
+  if (!tokensEl) return;
+  const { accessToken, refreshToken } = getTokens();
+  tokensEl.textContent = JSON.stringify({ accessToken, refreshToken }, null, 2);
 }
 
-// Show a value (object or string) in the out element, optionally mark as error
+function setStatus(text, detail) {
+  if (statusEl) statusEl.textContent = text;
+  if (statusDetailEl) statusDetailEl.textContent = detail || "";
+}
+
 function show(payload, isError) {
+  if (!out) return;
   out.textContent =
     typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
   out.className = isError ? "err" : "";
 }
 
-// Shorthand to show a typical API response with its status
 function showPayload(res, body, isError) {
   show({ status: res.status, ok: res.ok, body }, isError);
 }
 
-// -- API interaction helpers --
-
-// Make a fetch request, optionally with Bearer auth header
-async function fetchAuth(path, options = {}, useBearer = false) {
+async function fetchJson(path, options = {}, { bearer = false } = {}) {
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
-  if (useBearer && getAccess()) {
-    headers.Authorization = `Bearer ${getAccess()}`;
+  if (bearer) {
+    const { accessToken } = getTokens();
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   }
+
   const res = await fetch(path, { ...options, headers });
   const text = await res.text();
   let body;
   try {
     body = text ? JSON.parse(text) : {};
   } catch {
-    body = text;
+    body = { raw: text };
   }
   return { res, body };
 }
 
-// -- Main session (re)validation workflow --
+function getCreds() {
+  return {
+    email: document.getElementById("email")?.value || "",
+    password: document.getElementById("password")?.value || "",
+  };
+}
 
-// Attempts to fetch /api/me with the access token. 
-// If unauthorized, tries the refresh token, then retries /api/me.
-// If all fails, logs out.
-async function refreshMe() {
-  const first = await fetchAuth("/api/me", { method: "GET" }, true);
-  if (first.res.ok) {
-    showPayload(first.res, first.body, false);
-    setStatus(true, first.body?.user?.email);
+// Attempts /api/me with access token; if 401 and refresh exists, rotates via /api/refresh and retries /api/me.
+async function validateSession() {
+  renderTokens();
+  const { accessToken, refreshToken } = getTokens();
+
+  if (!accessToken && !refreshToken) {
+    setStatus("logged out", "No tokens stored.");
     return;
   }
 
-  showPayload(first.res, first.body, true);
+  setStatus("checking…", "");
+  const first = await fetchJson("/api/me", { method: "GET" }, { bearer: true });
+  if (first.res.ok) {
+    setStatus(
+      "logged in",
+      first.body?.user?.email ? `as ${first.body.user.email}` : "",
+    );
+    showPayload(first.res, first.body, false);
+    return;
+  }
 
-  // If token expired, attempt to refresh
-  if (first.res.status === 401 && getRefresh()) {
-    const rotated = await fetchAuth("/api/refresh", {
+  // If unauthorized, try refresh (rotation) then retry /me
+  if (first.res.status === 401 && refreshToken) {
+    const rotated = await fetchJson("/api/refresh", {
       method: "POST",
-      body: JSON.stringify({ refreshToken: getRefresh() }),
+      body: JSON.stringify({ refreshToken }),
     });
+    showPayload(rotated.res, rotated.body, !rotated.res.ok);
     if (rotated.res.ok) {
-      saveTokensFromResponse(rotated.body);
-      showPayload(rotated.res, rotated.body, false);
-      // Try /me again with new token
-      const second = await fetchAuth("/api/me", { method: "GET" }, true);
+      setTokens(rotated.body || {});
+      const second = await fetchJson(
+        "/api/me",
+        { method: "GET" },
+        { bearer: true },
+      );
+      showPayload(second.res, second.body, !second.res.ok);
       if (second.res.ok) {
-        showPayload(second.res, second.body, false);
-        setStatus(true, second.body?.user?.email);
+        setStatus(
+          "logged in",
+          second.body?.user?.email ? `as ${second.body.user.email}` : "",
+        );
         return;
       }
-      showPayload(second.res, second.body, true);
     }
   }
 
-  // Could not validate session, log out
+  // Could not validate: clear local tokens for a clean slate
   clearTokens();
-  setStatus(false);
+  setStatus("logged out", "Session invalid or expired. Tokens cleared.");
+  showPayload(first.res, first.body, true);
 }
 
-// -- UI Event Handlers --
-
-// Registration flow: collects email/password, calls /register, saves tokens
 document.getElementById("btnRegister").onclick = async () => {
-  const email = document.getElementById("regEmail").value;
-  const password = document.getElementById("regPassword").value;
-  const { res, body } = await fetchAuth("/api/register", {
+  const { res, body } = await fetchJson("/api/register", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(getCreds()),
   });
   showPayload(res, body, !res.ok);
   if (res.ok) {
-    saveTokensFromResponse(body);
-    setStatus(true, body?.user?.email);
+    setTokens(body || {});
+    await validateSession();
   }
 };
 
-// Login flow: collects email/password, calls /login, saves tokens
 document.getElementById("btnLogin").onclick = async () => {
-  const email = document.getElementById("loginEmail").value;
-  const password = document.getElementById("loginPassword").value;
-  const { res, body } = await fetchAuth("/api/login", {
+  const { res, body } = await fetchJson("/api/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(getCreds()),
   });
   showPayload(res, body, !res.ok);
   if (res.ok) {
-    saveTokensFromResponse(body);
-    setStatus(true, body?.user?.email);
+    setTokens(body || {});
+    await validateSession();
   }
 };
 
-// "Me" button: tries to validate current session state
-document.getElementById("btnMe").onclick = () => {
-  refreshMe().catch(() => {});
+document.getElementById("btnMe").onclick = async () => {
+  const { res, body } = await fetchJson(
+    "/api/me",
+    { method: "GET" },
+    { bearer: true },
+  );
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    setStatus(
+      "logged in",
+      body?.user?.email ? `as ${body.user.email}` : "",
+    );
+  } else if (res.status === 401) {
+    setStatus("unauthorized", "Access token missing/expired. Try refresh.");
+  }
 };
 
-// Refresh token flow: manually POST refresh token to /api/refresh
 document.getElementById("btnRefresh").onclick = async () => {
-  if (!getRefresh()) {
+  const { refreshToken } = getTokens();
+  if (!refreshToken) {
     show(
-      {
-        status: 0,
-        ok: false,
-        body: { error: "No refresh token in localStorage" },
-      },
+      { status: 0, ok: false, body: { error: "No refresh token stored" } },
       true,
     );
     return;
   }
-  const { res, body } = await fetchAuth("/api/refresh", {
+  const { res, body } = await fetchJson("/api/refresh", {
     method: "POST",
-    body: JSON.stringify({ refreshToken: getRefresh() }),
+    body: JSON.stringify({ refreshToken }),
   });
   showPayload(res, body, !res.ok);
   if (res.ok) {
-    saveTokensFromResponse(body);
-    setStatus(true, body?.user?.email);
+    setTokens(body || {});
+    await validateSession();
   }
 };
 
-// Logout flow: calls /api/logout, then clears tokens and UI status
 document.getElementById("btnLogout").onclick = async () => {
-  if (!getRefresh()) {
-    show(
-      { status: 400, ok: false, body: { error: "No refresh token stored" } },
-      true,
-    );
+  const { refreshToken } = getTokens();
+  if (!refreshToken) {
     clearTokens();
-    setStatus(false);
+    setStatus("logged out", "No refresh token stored. Local tokens cleared.");
     return;
   }
-  const { res, body } = await fetchAuth("/api/logout", {
+  const { res, body } = await fetchJson("/api/logout", {
     method: "POST",
-    body: JSON.stringify({ refreshToken: getRefresh() }),
+    body: JSON.stringify({ refreshToken }),
   });
   showPayload(res, body, !res.ok);
   clearTokens();
-  setStatus(false);
+  setStatus("logged out", "Refresh token revoked (if it existed).");
 };
 
-// On page load, attempt to restore current session
-refreshMe().catch(() => {});
+document.getElementById("btnClear").onclick = () => {
+  clearTokens();
+  setStatus("logged out", "Local tokens cleared.");
+};
+
+renderTokens();
+validateSession().catch(() => {
+  setStatus("error", "Failed to reach API.");
+});
