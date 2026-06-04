@@ -5,7 +5,8 @@ import helmet from "helmet";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.join(__dirname, "..", "public");
+// Shared demo UI at repo root (see README)
+const publicDir = path.join(__dirname, "..", "..", "..", "public");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;

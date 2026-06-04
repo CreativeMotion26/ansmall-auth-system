@@ -20,6 +20,10 @@
       h1 {
         margin: 0 0 0.5rem 0;
       }
+      h2 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1.1rem;
+      }
       .muted {
         opacity: 0.8;
       }
@@ -64,18 +68,46 @@
         padding: 0.75rem;
         overflow: auto;
         border-radius: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          monospace;
+        font-size: 0.85rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      th,
+      td {
+        border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+        padding: 0.45rem 0.35rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        font-weight: 600;
+        width: 5.5rem;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          monospace;
+        font-size: 0.9em;
       }
       .err {
         color: #b00020;
+      }
+      footer {
+        margin-top: 1.5rem;
+        font-size: 0.85rem;
       }
     </style>
   </head>
   <body>
     <h1>ansmall-auth demo</h1>
     <p class="muted">
-      Learning demo for <strong>register</strong>, <strong>login</strong>,
-      <strong>logout</strong>, and <code>GET /api/me</code> using a short-lived JWT
-      access token plus a rotating refresh token stored (hashed) server-side.
+      JWT access tokens (15 min) + rotating refresh tokens (SHA-256 hash in SQLite).
+      Passwords hashed with bcrypt. Gateway on <code>:3000</code> proxies
+      <code>/api/*</code> to auth on <code>:3001</code>.
     </p>
 
     <div class="card">
@@ -85,15 +117,24 @@
 
     <div class="grid">
       <section class="card">
-        <h2 style="margin-top: 0">Credentials</h2>
+        <h2>Credentials</h2>
         <div class="row">
           <label style="flex: 1; min-width: 16rem"
             >Email
-            <input type="email" id="email" autocomplete="email" placeholder="you@example.com" />
+            <input
+              type="email"
+              id="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+            />
           </label>
           <label style="flex: 1; min-width: 16rem"
             >Password (min 8 chars)
-            <input type="password" id="password" autocomplete="current-password" />
+            <input
+              type="password"
+              id="password"
+              autocomplete="current-password"
+            />
           </label>
         </div>
         <div class="row">
@@ -101,12 +142,12 @@
           <button type="button" id="btnLogin">POST /api/login</button>
         </div>
         <p class="muted" style="margin-bottom: 0">
-          Rate limit: 50 requests / 15 minutes per IP on register/login/refresh.
+          Rate limit: 50 requests / 15 minutes per IP on register, login, refresh.
         </p>
       </section>
 
       <section class="card">
-        <h2 style="margin-top: 0">Session actions</h2>
+        <h2>Session actions</h2>
         <div class="row">
           <button type="button" id="btnMe">GET /api/me</button>
           <button type="button" id="btnRefresh">POST /api/refresh</button>
@@ -115,20 +156,67 @@
         </div>
         <p class="muted" style="margin-bottom: 0">
           Protected calls use <code>Authorization: Bearer &lt;accessToken&gt;</code>.
-          This page stores tokens in <code>localStorage</code> (fine for learning).
+          Tokens live in <code>localStorage</code> (learning only).
         </p>
       </section>
     </div>
 
     <section class="card">
-      <h2 style="margin-top: 0">Stored tokens (localStorage)</h2>
+      <h2>API reference</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Path</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/register</code></td>
+            <td><code>{ email, password }</code> → tokens + <code>user</code></td>
+          </tr>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/login</code></td>
+            <td>Same body and response as register</td>
+          </tr>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/refresh</code></td>
+            <td><code>{ refreshToken }</code> → new access + rotated refresh</td>
+          </tr>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/logout</code></td>
+            <td><code>{ refreshToken }</code> → revoke refresh token</td>
+          </tr>
+          <tr>
+            <td>GET</td>
+            <td><code>/api/me</code></td>
+            <td>Bearer access token → current user</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Stored tokens (localStorage)</h2>
       <pre id="tokens">(none yet)</pre>
     </section>
 
     <section class="card">
-      <h2 style="margin-top: 0">Last response</h2>
+      <h2>Last response</h2>
       <pre id="out">(none yet)</pre>
     </section>
+
+    <footer class="muted">
+      Run <code>npm run dev</code> then open
+      <a href="http://localhost:3000">http://localhost:3000</a>. Copy
+      <code>.env.example</code> to <code>.env</code>; set
+      <code>ACCESS_TOKEN_SECRET</code> in production.
+    </footer>
 
     <script src="/app.js"></script>
   </body>

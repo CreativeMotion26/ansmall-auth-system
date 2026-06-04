@@ -23,7 +23,8 @@ function getTokens() {
   return { accessToken, refreshToken };
 }
 
-function setTokens({ accessToken, refreshToken }) {
+function setTokens(body) {
+  const { accessToken, refreshToken } = body || {};
   if (typeof accessToken === "string" && accessToken) {
     localStorage.setItem(STORAGE_ACCESS, accessToken);
     localStorage.setItem(STORAGE_ACCESS_LEGACY, accessToken);
@@ -32,6 +33,7 @@ function setTokens({ accessToken, refreshToken }) {
     localStorage.setItem(STORAGE_REFRESH, refreshToken);
     localStorage.setItem(STORAGE_REFRESH_LEGACY, refreshToken);
   }
+  rememberExpiresIn(body);
   renderTokens();
 }
 
@@ -40,6 +42,7 @@ function clearTokens() {
   localStorage.removeItem(STORAGE_REFRESH);
   localStorage.removeItem(STORAGE_ACCESS_LEGACY);
   localStorage.removeItem(STORAGE_REFRESH_LEGACY);
+  sessionStorage.removeItem(STORAGE_EXPIRES_IN);
   renderTokens();
 }
 
@@ -49,9 +52,27 @@ function renderTokens() {
   tokensEl.textContent = JSON.stringify({ accessToken, refreshToken }, null, 2);
 }
 
+const STORAGE_EXPIRES_IN = "ansmall_expires_in";
+
+function expiresDetail() {
+  const raw = sessionStorage.getItem(STORAGE_EXPIRES_IN);
+  const seconds = raw ? Number(raw) : NaN;
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const minutes = Math.round(seconds / 60);
+  return `Access token TTL ~${minutes} min (${seconds}s). Refresh rotates on use.`;
+}
+
+function rememberExpiresIn(body) {
+  if (typeof body?.expiresIn === "number") {
+    sessionStorage.setItem(STORAGE_EXPIRES_IN, String(body.expiresIn));
+  }
+}
+
 function setStatus(text, detail) {
   if (statusEl) statusEl.textContent = text;
-  if (statusDetailEl) statusDetailEl.textContent = detail || "";
+  const extra = expiresDetail();
+  const combined = [detail, extra].filter(Boolean).join(" ");
+  if (statusDetailEl) statusDetailEl.textContent = combined;
 }
 
 function show(payload, isError) {

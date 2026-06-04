@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { Button, StyleSheet, Text, View } from "react-native";
+import { Button, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { ApiError, me as meApi } from "../src/api/client";
+import { ApiError, me as meApi, refresh as refreshApi } from "../src/api/client";
 import { useAuthStore } from "../src/state/authStore";
+import { ScreenIntro } from "../src/ui/ScreenIntro";
+import { shared } from "../src/ui/styles";
 
 export default function Me() {
   const router = useRouter();
@@ -28,9 +30,26 @@ export default function Me() {
   const meQuery = useQuery({
     queryKey,
     queryFn: async () => {
-      if (!accessToken) throw new Error("No access token");
-      const res = await meApi(accessToken);
-      return res.user;
+      const state = useAuthStore.getState();
+      const token = state.accessToken;
+      if (!token) throw new Error("No access token");
+
+      try {
+        const res = await meApi(token);
+        return res.user;
+      } catch (e) {
+        if (
+          e instanceof ApiError &&
+          e.status === 401 &&
+          state.refreshToken
+        ) {
+          const bundle = await refreshApi({ refreshToken: state.refreshToken });
+          await state.setTokens(bundle);
+          const retry = await meApi(bundle.accessToken);
+          return retry.user;
+        }
+        throw e;
+      }
     },
     enabled: !!accessToken,
     retry: false,
@@ -43,67 +62,62 @@ export default function Me() {
 
   if (!accessToken) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Not authenticated</Text>
+      <ScrollView contentContainerStyle={shared.screen}>
+        <ScreenIntro title="Not authenticated" subtitle="Log in or register first." />
         <Button title="Go to Login" onPress={() => router.replace("/login")} />
-      </View>
+      </ScrollView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>GET /api/me</Text>
+    <ScrollView contentContainerStyle={shared.screen}>
+      <ScreenIntro
+        title="GET /api/me"
+        subtitle="Bearer access token. On 401, this screen auto-rotates refresh when possible."
+      />
 
-      {meQuery.isLoading && <Text>Loading...</Text>}
+      <View style={shared.card}>
+        {meQuery.isLoading && <Text>Loading...</Text>}
 
-      {!meQuery.isLoading && meQuery.data && (
-        <>
-          <Text style={styles.ok}>User ID: {meQuery.data.id}</Text>
-          <Text style={styles.ok}>Email: {meQuery.data.email}</Text>
-        </>
-      )}
+        {!meQuery.isLoading && meQuery.data && (
+          <>
+            <Text style={shared.ok}>User ID: {meQuery.data.id}</Text>
+            <Text style={shared.ok}>Email: {meQuery.data.email}</Text>
+          </>
+        )}
 
-      {!meQuery.isLoading && meQuery.error && (
-        <>
-          <Text style={styles.error}>Error: {String(meQuery.error)}</Text>
+        {!meQuery.isLoading && meQuery.error && (
+          <>
+            <Text style={shared.error}>Error: {String(meQuery.error)}</Text>
 
-          {meQuery.error instanceof ApiError &&
-            meQuery.error.status === 401 &&
-            refreshToken && (
-              <>
-                <Text style={styles.hint}>
-                  Access token rejected. Try refreshing:
-                </Text>
+            {meQuery.error instanceof ApiError &&
+              meQuery.error.status === 401 &&
+              refreshToken && (
+                <>
+                  <Text style={shared.hint}>
+                    Auto-refresh failed. Try manual refresh:
+                  </Text>
+                  <Button
+                    title="POST /api/refresh"
+                    onPress={() => router.replace("/refresh")}
+                  />
+                </>
+              )}
+
+            {meQuery.error instanceof ApiError &&
+              meQuery.error.status === 401 &&
+              !refreshToken && (
                 <Button
-                  title="Go to Refresh"
-                  onPress={() => router.replace("/refresh")}
+                  title="Log in again"
+                  onPress={() => router.replace("/login")}
                 />
-              </>
-            )}
+              )}
+          </>
+        )}
+      </View>
 
-          {meQuery.error instanceof ApiError &&
-            meQuery.error.status === 401 &&
-            !refreshToken && (
-              <Button
-                title="Log in again"
-                onPress={() => router.replace("/login")}
-              />
-            )}
-        </>
-      )}
-
-      <View style={styles.spacer} />
-      <Button title="Logout" onPress={onLogout} />
-    </View>
+      <Button title="POST /api/logout" onPress={onLogout} />
+      <Button title="Manual refresh" onPress={() => router.replace("/refresh")} />
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, justifyContent: "center" },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 12 },
-  ok: { fontSize: 16 },
-  error: { color: "red", marginBottom: 8 },
-  hint: { color: "#444", marginBottom: 8 },
-  spacer: { height: 12 },
-});
-

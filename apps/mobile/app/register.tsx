@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { Button, ScrollView, Text, TextInput, View } from "react-native";
 import { register } from "../src/api/client";
 import { CredentialsSchema } from "../src/schemas/auth";
 import { useAuthStore } from "../src/state/authStore";
+import { ScreenIntro } from "../src/ui/ScreenIntro";
+import { shared } from "../src/ui/styles";
 import { z } from "zod";
 
 export default function Register() {
@@ -37,46 +39,40 @@ export default function Register() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Register</Text>
-
-      <TextInput
-        style={styles.input}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="you@example.com"
-        value={email}
-        onChangeText={setEmail}
+    <ScrollView contentContainerStyle={shared.screen}>
+      <ScreenIntro
+        title="Register"
+        subtitle="POST /api/register — same response shape as login"
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password (min 8 chars)"
-        value={password}
-        secureTextEntry
-        onChangeText={setPassword}
-      />
+      <View style={shared.card}>
+        <TextInput
+          style={shared.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="you@example.com"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+        <TextInput
+          style={shared.input}
+          placeholder="Password (min 8 chars)"
+          value={password}
+          secureTextEntry
+          onChangeText={setPassword}
+        />
 
-      <Button title={submitting ? "Registering..." : "Register"} onPress={onSubmit} disabled={submitting} />
-      <View style={styles.spacer} />
+        {!!error && <Text style={shared.error}>{error}</Text>}
+
+        <Button
+          title={submitting ? "Registering..." : "Register"}
+          onPress={onSubmit}
+          disabled={submitting}
+        />
+      </View>
+
       <Button title="Go to Login" onPress={() => router.replace("/login")} />
-
-      <View style={styles.spacer} />
-      <Button
-        title="Need to test API response?"
-        onPress={() => Alert.alert("Tip", "You can also use the gateway UI at http://localhost:3000")}
-      />
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 20, fontWeight: "600" },
-  input: { borderWidth: 1, borderColor: "#ddd", padding: 12, borderRadius: 10 },
-  error: { color: "red" },
-  spacer: { height: 8 },
-});
-

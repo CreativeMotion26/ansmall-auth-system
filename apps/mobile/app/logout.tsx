@@ -1,8 +1,10 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Button, StyleSheet, Text, View } from "react-native";
+import { Button, ScrollView, Text, View } from "react-native";
 import { ApiError, logout } from "../src/api/client";
 import { useAuthStore } from "../src/state/authStore";
+import { ScreenIntro } from "../src/ui/ScreenIntro";
+import { shared } from "../src/ui/styles";
 
 export default function Logout() {
   const router = useRouter();
@@ -45,27 +47,23 @@ export default function Logout() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Logout</Text>
-
-      {!!error && <Text style={styles.error}>{error}</Text>}
-
-      <Button
-        title={submitting ? "Logging out..." : "Confirm logout"}
-        onPress={onLogout}
-        disabled={submitting}
+    <ScrollView contentContainerStyle={shared.screen}>
+      <ScreenIntro
+        title="POST /api/logout"
+        subtitle="Revokes the refresh token server-side, then clears secure storage."
       />
 
-      <View style={styles.spacer} />
+      <View style={shared.card}>
+        {!!error && <Text style={shared.error}>{error}</Text>}
+
+        <Button
+          title={submitting ? "Logging out..." : "Confirm logout"}
+          onPress={onLogout}
+          disabled={submitting}
+        />
+      </View>
+
       <Button title="Back to Me" onPress={() => router.replace("/me")} />
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, justifyContent: "center" },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 12 },
-  error: { color: "red", marginBottom: 12 },
-  spacer: { height: 12 },
-});
-

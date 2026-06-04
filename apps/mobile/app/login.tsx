@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { Button, ScrollView, Text, TextInput, View } from "react-native";
 import { login } from "../src/api/client";
 import { CredentialsSchema } from "../src/schemas/auth";
 import { useAuthStore } from "../src/state/authStore";
+import { ScreenIntro } from "../src/ui/ScreenIntro";
+import { shared } from "../src/ui/styles";
 import { z } from "zod";
 
 export default function Login() {
@@ -37,45 +39,40 @@ export default function Login() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-
-      <TextInput
-        style={styles.input}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="you@example.com"
-        value={email}
-        onChangeText={setEmail}
+    <ScrollView contentContainerStyle={shared.screen}>
+      <ScreenIntro
+        title="Login"
+        subtitle="POST /api/login — returns accessToken, refreshToken, expiresIn, user"
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password (min 8 chars)"
-        value={password}
-        secureTextEntry
-        onChangeText={setPassword}
-      />
+      <View style={shared.card}>
+        <TextInput
+          style={shared.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="you@example.com"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+        <TextInput
+          style={shared.input}
+          placeholder="Password (min 8 chars)"
+          value={password}
+          secureTextEntry
+          onChangeText={setPassword}
+        />
 
-      <Button
-        title={submitting ? "Logging in..." : "Login"}
-        onPress={onSubmit}
-        disabled={submitting}
-      />
+        {!!error && <Text style={shared.error}>{error}</Text>}
 
-      <View style={styles.spacer} />
+        <Button
+          title={submitting ? "Logging in..." : "Login"}
+          onPress={onSubmit}
+          disabled={submitting}
+        />
+      </View>
+
       <Button title="Go to Register" onPress={() => router.replace("/register")} />
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 12 },
-  input: { borderWidth: 1, borderColor: "#ddd", padding: 12, borderRadius: 10, marginBottom: 10 },
-  error: { color: "red", marginBottom: 10 },
-  spacer: { height: 8 },
-});
-

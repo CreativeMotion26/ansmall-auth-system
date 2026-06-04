@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Button, StyleSheet, Text, View } from "react-native";
-import { refresh as refreshApi } from "../src/api/client";
+import { Button, ScrollView, Text, View } from "react-native";
+import { ApiError, refresh as refreshApi } from "../src/api/client";
 import { RefreshRequestSchema } from "../src/schemas/auth";
 import { useAuthStore } from "../src/state/authStore";
-import { ApiError } from "../src/api/client";
+import { ScreenIntro } from "../src/ui/ScreenIntro";
+import { shared } from "../src/ui/styles";
 import { z } from "zod";
 
 export default function Refresh() {
@@ -58,27 +59,23 @@ export default function Refresh() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Refresh token</Text>
-
-      {!!error && <Text style={styles.error}>{error}</Text>}
-
-      <Button
-        title={submitting ? "Refreshing..." : "Refresh"}
-        onPress={onRefresh}
-        disabled={submitting}
+    <ScrollView contentContainerStyle={shared.screen}>
+      <ScreenIntro
+        title="POST /api/refresh"
+        subtitle="Sends refreshToken; server returns a new access token and rotates refresh."
       />
 
-      <View style={styles.spacer} />
+      <View style={shared.card}>
+        {!!error && <Text style={shared.error}>{error}</Text>}
+
+        <Button
+          title={submitting ? "Refreshing..." : "Refresh tokens"}
+          onPress={onRefresh}
+          disabled={submitting}
+        />
+      </View>
+
       <Button title="Log in with another account" onPress={onLogout} />
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, justifyContent: "center" },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 12 },
-  error: { color: "red", marginBottom: 12 },
-  spacer: { height: 12 },
-});
-
