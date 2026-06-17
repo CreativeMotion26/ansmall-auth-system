@@ -11,39 +11,118 @@ fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new Database(dbPath);
 
+db.pragma("journal_mode = WAL");
+db.pragma("synchronous = NORMAL");
+db.pragma("foreign_keys = ON");
+
 const schemaPath = path.join(__dirname, "..", "sql", "schema.sql");
 const schemaSql = fs.readFileSync(schemaPath, "utf8");
 db.exec(schemaSql);
+
+function migrateDatabase(): void {
+  db.exec(`DROP TABLE IF EXISTS sessions`);
+
+  const refreshColumns = db
+    .prepare(`PRAGMA table_info(refresh_tokens)`)
+    .all() as { name: string }[];
+
+  if (refreshColumns.length > 0 && refreshColumns.some((c) => c.name === "id")) {
+    const migrateRefreshTokens = db.transaction(() => {
+      db.exec(`DROP INDEX IF EXISTS idx_refresh_tokens_user_id`);
+      db.exec(`
+        CREATE TABLE refresh_tokens_new (
+          token_hash TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) WITHOUT ROWID
+      `);
+      db.exec(`
+        INSERT INTO refresh_tokens_new (token_hash, user_id, expires_at)
+        SELECT token_hash, user_id, expires_at FROM refresh_tokens
+      `);
+      db.exec(`DROP TABLE refresh_tokens`);
+      db.exec(`ALTER TABLE refresh_tokens_new RENAME TO refresh_tokens`);
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens (expires_at)`,
+      );
+    });
+    migrateRefreshTokens();
+  }
+
+  const userColumns = db
+    .prepare(`PRAGMA table_info(users)`)
+    .all() as { name: string; type: string }[];
+  const createdAtCol = userColumns.find((c) => c.name === "created_at");
+
+  if (userColumns.length > 0 && createdAtCol?.type.toUpperCase() === "TEXT") {
+    const migrateUsers = db.transaction(() => {
+      db.pragma("foreign_keys = OFF");
+      db.exec(`
+        CREATE TABLE users_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL
+            CHECK (length(trim(password_hash)) > 0),
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        )
+      `);
+      db.exec(`
+        INSERT INTO users_new (id, email, password_hash, created_at)
+        SELECT id, email, password_hash, unixepoch(created_at) FROM users
+      `);
+      db.exec(`DROP TABLE users`);
+      db.exec(`ALTER TABLE users_new RENAME TO users`);
+      db.pragma("foreign_keys = ON");
+    });
+    migrateUsers();
+  }
+}
+
+migrateDatabase();
 
 export type UserRow = {
   id: number;
   email: string;
   password_hash: string;
-  created_at: string;
+  created_at: number;
 };
 
+const stmtFindUserByEmail = db.prepare(
+  `SELECT id, email, password_hash, created_at FROM users WHERE email = ?`,
+);
+const stmtFindUserById = db.prepare(
+  `SELECT id, email, password_hash, created_at FROM users WHERE id = ?`,
+);
+const stmtInsertUser = db.prepare(
+  `INSERT INTO users (email, password_hash) VALUES (?, ?)`,
+);
+const stmtInsertRefreshToken = db.prepare(
+  `INSERT INTO refresh_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)`,
+);
+const stmtFindValidRefreshToken = db.prepare(
+  `SELECT user_id FROM refresh_tokens WHERE token_hash = ? AND expires_at > ?`,
+);
+const stmtDeleteRefreshToken = db.prepare(
+  `DELETE FROM refresh_tokens WHERE token_hash = ?`,
+);
+const stmtDeleteExpiredRefreshTokens = db.prepare(
+  `DELETE FROM refresh_tokens WHERE expires_at <= ?`,
+);
+
 export function findUserByEmail(email: string): UserRow | undefined {
-  const row = db
-    .prepare(
-      `SELECT id, email, password_hash, created_at FROM users WHERE email = ?`,
-    )
-    .get(email.trim().toLowerCase()) as UserRow | undefined;
-  return row;
+  return stmtFindUserByEmail.get(email.trim().toLowerCase()) as
+    | UserRow
+    | undefined;
 }
 
 export function findUserById(id: number): UserRow | undefined {
-  return db
-    .prepare(
-      `SELECT id, email, password_hash, created_at FROM users WHERE id = ?`,
-    )
-    .get(id) as UserRow | undefined;
+  return stmtFindUserById.get(id) as UserRow | undefined;
 }
 
 export function createUser(email: string, passwordHash: string): UserRow {
   const normalized = email.trim().toLowerCase();
-  const result = db
-    .prepare(`INSERT INTO users (email, password_hash) VALUES (?, ?)`)
-    .run(normalized, passwordHash);
+  const result = stmtInsertUser.run(normalized, passwordHash);
   const id = Number(result.lastInsertRowid);
   const user = findUserById(id);
   if (!user) {
@@ -57,27 +136,25 @@ export function insertRefreshToken(
   tokenHash: string,
   expiresAtUnix: number,
 ): void {
-  db.prepare(
-    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`,
-  ).run(userId, tokenHash, expiresAtUnix);
+  stmtInsertRefreshToken.run(tokenHash, userId, expiresAtUnix);
 }
 
 export function findValidRefreshTokenUserId(
   tokenHash: string,
   nowUnix: number,
 ): number | null {
-  const row = db
-    .prepare(
-      `SELECT user_id FROM refresh_tokens WHERE token_hash = ? AND expires_at > ?`,
-    )
-    .get(tokenHash, nowUnix) as { user_id: number } | undefined;
+  const row = stmtFindValidRefreshToken.get(tokenHash, nowUnix) as
+    | { user_id: number }
+    | undefined;
   return row ? row.user_id : null;
 }
 
 export function deleteRefreshTokenByHash(tokenHash: string): number {
-  const info = db
-    .prepare(`DELETE FROM refresh_tokens WHERE token_hash = ?`)
-    .run(tokenHash);
-  return info.changes;
+  return stmtDeleteRefreshToken.run(tokenHash).changes;
 }
 
+export function deleteExpiredRefreshTokens(nowUnix: number): number {
+  return stmtDeleteExpiredRefreshTokens.run(nowUnix).changes;
+}
+
+deleteExpiredRefreshTokens(Math.floor(Date.now() / 1000));
