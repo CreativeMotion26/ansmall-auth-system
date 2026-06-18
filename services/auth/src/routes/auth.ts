@@ -4,10 +4,13 @@ import bcrypt from "bcryptjs";
 import {
   createUser,
   deleteRefreshTokenByHash,
+  deleteRefreshTokensForUser,
+  deleteUser,
   findUserByEmail,
   findUserById,
   findValidRefreshTokenUserId,
   insertRefreshToken,
+  updateUserPassword,
   type UserRow,
 } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -18,15 +21,14 @@ import {
   hashRefreshToken,
   signAccessToken,
 } from "../tokens.js";
+import {
+  MIN_PASSWORD_LENGTH,
+  validateEmail,
+  validatePassword,
+} from "../validation.js";
 
-const MIN_PASSWORD_LENGTH = 8;
-
-function validateEmail(email: unknown): string | null {
-  if (typeof email !== "string") return null;
-  const trimmed = email.trim().toLowerCase();
-  if (trimmed.length < 3 || trimmed.length > 254) return null;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return null;
-  return trimmed;
+function toPublicUser(user: UserRow) {
+  return { id: user.id, email: user.email };
 }
 
 function sendTokenBundle(res: Response, user: UserRow, status = 200): void {
@@ -41,7 +43,7 @@ function sendTokenBundle(res: Response, user: UserRow, status = 200): void {
     accessToken,
     refreshToken,
     expiresIn: ACCESS_TOKEN_EXPIRES_SEC,
-    user: { id: user.id, email: user.email },
+    user: toPublicUser(user),
   });
 }
 
@@ -49,13 +51,13 @@ export const authRouter = Router();
 
 authRouter.post("/register", async (req, res) => {
   const email = validateEmail(req.body?.email);
-  const password = req.body?.password;
+  const password = validatePassword(req.body?.password);
 
   if (!email) {
     res.status(400).json({ error: "Invalid email" });
     return;
   }
-  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+  if (!password) {
     res.status(400).json({
       error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
     });
@@ -139,12 +141,78 @@ authRouter.post("/logout", (req, res) => {
   res.json({ message: "Refresh token revoked" });
 });
 
+/**
+ * Requires access token. Revokes every refresh token for the signed-in user.
+ */
+authRouter.post("/logout-all", requireAuth, (req, res) => {
+  const revoked = deleteRefreshTokensForUser(req.userId!);
+  res.json({ message: "All refresh tokens revoked", revoked });
+});
+
 authRouter.get("/me", requireAuth, (req, res) => {
   const user = findUserById(req.userId!);
   if (!user) {
     res.status(401).json({ error: "User not found" });
     return;
   }
-  res.json({ user: { id: user.id, email: user.email } });
+  res.json({ user: toPublicUser(user) });
 });
 
+/**
+ * Body: { currentPassword, newPassword }.
+ */
+authRouter.patch("/me/password", requireAuth, async (req, res) => {
+  const currentPassword = req.body?.currentPassword;
+  const newPassword = validatePassword(req.body?.newPassword);
+
+  if (typeof currentPassword !== "string" || !newPassword) {
+    res.status(400).json({
+      error: `currentPassword and newPassword (min ${MIN_PASSWORD_LENGTH} chars) required`,
+    });
+    return;
+  }
+
+  const user = findUserById(req.userId!);
+  if (!user) {
+    res.status(401).json({ error: "User not found" });
+    return;
+  }
+
+  const ok = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!ok) {
+    res.status(401).json({ error: "Current password is incorrect" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  updateUserPassword(user.id, passwordHash);
+  deleteRefreshTokensForUser(user.id);
+
+  res.json({ message: "Password updated; sign in again on other devices" });
+});
+
+/**
+ * Body: { password }. Permanently deletes the account and all refresh tokens.
+ */
+authRouter.delete("/me", requireAuth, async (req, res) => {
+  const password = req.body?.password;
+  if (typeof password !== "string") {
+    res.status(400).json({ error: "password required to delete account" });
+    return;
+  }
+
+  const user = findUserById(req.userId!);
+  if (!user) {
+    res.status(401).json({ error: "User not found" });
+    return;
+  }
+
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) {
+    res.status(401).json({ error: "Password is incorrect" });
+    return;
+  }
+
+  deleteUser(user.id);
+  res.json({ message: "Account deleted" });
+});

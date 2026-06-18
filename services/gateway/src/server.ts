@@ -20,7 +20,6 @@ app.use(
     target: AUTH_URL,
     changeOrigin: true,
     xfwd: true,
-    logLevel: "warn",
   }),
 );
 

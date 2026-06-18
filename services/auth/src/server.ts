@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { authRouter } from "./routes/auth.js";
+import { healthRouter } from "./routes/health.js";
 import { assertAccessSecretInProduction } from "./tokens.js";
 
 assertAccessSecretInProduction();
@@ -24,6 +25,7 @@ app.use("/api/register", authLimiter);
 app.use("/api/login", authLimiter);
 app.use("/api/refresh", authLimiter);
 
+app.use("/api", healthRouter);
 app.use("/api", authRouter);
 
 app.listen(PORT, () => {

@@ -28,7 +28,11 @@ Copy `.env.example` to `.env`. In production, set **`ACCESS_TOKEN_SECRET`** (req
 | POST | `/api/login` | Same body and response |
 | POST | `/api/refresh` | Body: `{ "refreshToken" }` → new access + **new** refresh (rotation) |
 | POST | `/api/logout` | Body: `{ "refreshToken" }` → revoke that refresh token |
+| POST | `/api/logout-all` | Header: `Authorization: Bearer <accessToken>` → revoke all refresh tokens for user |
 | GET | `/api/me` | Header: `Authorization: Bearer <accessToken>` |
+| PATCH | `/api/me/password` | Header: Bearer + body: `{ "currentPassword", "newPassword" }` |
+| DELETE | `/api/me` | Header: Bearer + body: `{ "password" }` → delete account |
+| GET | `/api/health` | Service health check (no auth) |
 
 Rate limit: **50 requests / 15 minutes** per IP on `/api/register`, `/api/login`, and `/api/refresh`.
 

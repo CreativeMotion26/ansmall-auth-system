@@ -109,6 +109,13 @@ const stmtDeleteRefreshToken = db.prepare(
 const stmtDeleteExpiredRefreshTokens = db.prepare(
   `DELETE FROM refresh_tokens WHERE expires_at <= ?`,
 );
+const stmtUpdatePassword = db.prepare(
+  `UPDATE users SET password_hash = ? WHERE id = ?`,
+);
+const stmtDeleteUser = db.prepare(`DELETE FROM users WHERE id = ?`);
+const stmtDeleteRefreshTokensForUser = db.prepare(
+  `DELETE FROM refresh_tokens WHERE user_id = ?`,
+);
 
 export function findUserByEmail(email: string): UserRow | undefined {
   return stmtFindUserByEmail.get(email.trim().toLowerCase()) as
@@ -155,6 +162,21 @@ export function deleteRefreshTokenByHash(tokenHash: string): number {
 
 export function deleteExpiredRefreshTokens(nowUnix: number): number {
   return stmtDeleteExpiredRefreshTokens.run(nowUnix).changes;
+}
+
+export function updateUserPassword(
+  userId: number,
+  passwordHash: string,
+): boolean {
+  return stmtUpdatePassword.run(passwordHash, userId).changes > 0;
+}
+
+export function deleteUser(userId: number): boolean {
+  return stmtDeleteUser.run(userId).changes > 0;
+}
+
+export function deleteRefreshTokensForUser(userId: number): number {
+  return stmtDeleteRefreshTokensForUser.run(userId).changes;
 }
 
 deleteExpiredRefreshTokens(Math.floor(Date.now() / 1000));
