@@ -20,19 +20,23 @@ Open [http://localhost:3000](http://localhost:3000). Use **Authorization: Bearer
 
 Copy `.env.example` to `.env`. In production, set **`ACCESS_TOKEN_SECRET`** (required).
 
-## API
+## API documentation
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/register` | Body: `{ "email", "password" }` → `{ accessToken, refreshToken, expiresIn, user }` |
-| POST | `/api/login` | Same body and response |
-| POST | `/api/refresh` | Body: `{ "refreshToken" }` → new access + **new** refresh (rotation) |
-| POST | `/api/logout` | Body: `{ "refreshToken" }` → revoke that refresh token |
-| POST | `/api/logout-all` | Header: `Authorization: Bearer <accessToken>` → revoke all refresh tokens for user |
-| GET | `/api/me` | Header: `Authorization: Bearer <accessToken>` |
-| PATCH | `/api/me/password` | Header: Bearer + body: `{ "currentPassword", "newPassword" }` |
-| DELETE | `/api/me` | Header: Bearer + body: `{ "password" }` → delete account |
-| GET | `/api/health` | Service health check (no auth) |
+Full reference: **[`docs/API.md`](docs/API.md)** — request/response shapes, curl examples, auth flow.
+
+OpenAPI 3 spec: **[`docs/openapi.yaml`](docs/openapi.yaml)** — import into [Swagger Editor](https://editor.swagger.io/) or use with code generators.
+
+| Method | Path | Summary |
+|--------|------|---------|
+| GET | `/api/health` | Health check |
+| POST | `/api/register` | Create account → tokens |
+| POST | `/api/login` | Sign in → tokens |
+| POST | `/api/refresh` | Rotate refresh token → new tokens |
+| POST | `/api/logout` | Revoke one refresh token |
+| POST | `/api/logout-all` | Revoke all refresh tokens (Bearer) |
+| GET | `/api/me` | Current user (Bearer) |
+| PATCH | `/api/me/password` | Change password (Bearer) |
+| DELETE | `/api/me` | Delete account (Bearer) |
 
 Rate limit: **50 requests / 15 minutes** per IP on `/api/register`, `/api/login`, and `/api/refresh`.
 
