@@ -152,6 +152,7 @@
           <button type="button" id="btnMe">GET /api/me</button>
           <button type="button" id="btnRefresh">POST /api/refresh</button>
           <button type="button" id="btnLogout">POST /api/logout</button>
+          <button type="button" id="btnLogoutAll">POST /api/logout-all</button>
           <button type="button" id="btnClear">Clear local tokens</button>
         </div>
         <p class="muted" style="margin-bottom: 0">
@@ -161,8 +162,29 @@
       </section>
     </div>
 
-    <section class="card">
-      <h2>API reference</h2>
+      <section class="card">
+        <h2>Account actions</h2>
+        <div class="row">
+          <label style="flex: 1; min-width: 16rem"
+            >Current password
+            <input type="password" id="currentPassword" autocomplete="current-password" />
+          </label>
+          <label style="flex: 1; min-width: 16rem"
+            >New password
+            <input type="password" id="newPassword" autocomplete="new-password" />
+          </label>
+        </div>
+        <div class="row">
+          <button type="button" id="btnChangePassword">PATCH /api/me/password</button>
+          <button type="button" id="btnDeleteAccount">DELETE /api/me</button>
+        </div>
+        <p class="muted" style="margin-bottom: 0">
+          Delete account uses the main password field above.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>API reference</h2>
       <table>
         <thead>
           <tr>
@@ -197,6 +219,26 @@
             <td><code>/api/me</code></td>
             <td>Bearer access token → current user</td>
           </tr>
+          <tr>
+            <td>GET</td>
+            <td><code>/api/health</code></td>
+            <td>Health check (no auth)</td>
+          </tr>
+          <tr>
+            <td>POST</td>
+            <td><code>/api/logout-all</code></td>
+            <td>Bearer → revoke all refresh tokens</td>
+          </tr>
+          <tr>
+            <td>PATCH</td>
+            <td><code>/api/me/password</code></td>
+            <td>Bearer + <code>{ currentPassword, newPassword }</code></td>
+          </tr>
+          <tr>
+            <td>DELETE</td>
+            <td><code>/api/me</code></td>
+            <td>Bearer + <code>{ password }</code> → delete account</td>
+          </tr>
         </tbody>
       </table>
     </section>
@@ -213,9 +255,9 @@
 
     <footer class="muted">
       Run <code>npm run dev</code> then open
-      <a href="http://localhost:3000">http://localhost:3000</a>. Copy
-      <code>.env.example</code> to <code>.env</code>; set
-      <code>ACCESS_TOKEN_SECRET</code> in production.
+      <a href="http://localhost:3000">http://localhost:3000</a>. Full API docs:
+      <code>docs/API.md</code>. Copy <code>.env.example</code> to <code>.env</code>;
+      set <code>ACCESS_TOKEN_SECRET</code> in production.
     </footer>
 
     <script src="/app.js"></script>

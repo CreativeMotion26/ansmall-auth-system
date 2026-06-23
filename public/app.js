@@ -243,12 +243,74 @@ document.getElementById("btnLogout").onclick = async () => {
   setStatus("logged out", "Refresh token revoked (if it existed).");
 };
 
+document.getElementById("btnLogoutAll").onclick = async () => {
+  const { res, body } = await fetchJson(
+    "/api/logout-all",
+    { method: "POST" },
+    { bearer: true },
+  );
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    clearTokens();
+    setStatus("logged out", "All refresh tokens revoked.");
+  }
+};
+
+document.getElementById("btnChangePassword").onclick = async () => {
+  const currentPassword = document.getElementById("currentPassword")?.value || "";
+  const newPassword = document.getElementById("newPassword")?.value || "";
+  const { res, body } = await fetchJson(
+    "/api/me/password",
+    {
+      method: "PATCH",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    },
+    { bearer: true },
+  );
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    clearTokens();
+    setStatus("logged out", "Password changed; sign in again.");
+  }
+};
+
+document.getElementById("btnDeleteAccount").onclick = async () => {
+  const password = document.getElementById("password")?.value || "";
+  const { res, body } = await fetchJson(
+    "/api/me",
+    {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    },
+    { bearer: true },
+  );
+  showPayload(res, body, !res.ok);
+  if (res.ok) {
+    clearTokens();
+    setStatus("logged out", "Account deleted.");
+  }
+};
+
 document.getElementById("btnClear").onclick = () => {
   clearTokens();
   setStatus("logged out", "Local tokens cleared.");
 };
 
-renderTokens();
-validateSession().catch(() => {
+// On load: health check + session validation
+async function bootstrap() {
+  renderTokens();
+  try {
+    const health = await fetchJson("/api/health", { method: "GET" });
+    if (health.res.ok) {
+      setStatus("ready", `API healthy (${health.body?.service ?? "auth"})`);
+    }
+  } catch {
+    setStatus("error", "Failed to reach API. Run npm run dev.");
+    return;
+  }
+  await validateSession();
+}
+
+bootstrap().catch(() => {
   setStatus("error", "Failed to reach API.");
 });

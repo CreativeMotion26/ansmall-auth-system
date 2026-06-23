@@ -25,11 +25,31 @@ export const RefreshRequestSchema = z.object({
   refreshToken: z.string().min(16),
 });
 
-export const LogoutResponseSchema = z.object({
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
+export const DeleteAccountSchema = z.object({
+  password: z.string().min(1),
+});
+
+export const MessageResponseSchema = z.object({
   message: z.string(),
+});
+
+export const LogoutResponseSchema = MessageResponseSchema;
+
+export const LogoutAllResponseSchema = z.object({
+  message: z.string(),
+  revoked: z.number(),
+});
+
+export const HealthResponseSchema = z.object({
+  status: z.string(),
+  service: z.string(),
 });
 
 export const MeResponseSchema = z.object({
   user: UserSchema,
 });
-

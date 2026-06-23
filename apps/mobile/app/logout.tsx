@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, ScrollView, Text, View } from "react-native";
 import { ApiError, logout } from "../src/api/client";
 import { useAuthStore } from "../src/state/authStore";
@@ -8,21 +8,13 @@ import { shared } from "../src/ui/styles";
 
 export default function Logout() {
   const router = useRouter();
-  const { hydrated, refreshToken, hydrate, clearTokens } = useAuthStore(
-    (s) => ({
-      hydrated: s.hydrated,
-      refreshToken: s.refreshToken,
-      hydrate: s.hydrate,
-      clearTokens: s.clearTokens,
-    }),
-  );
+  const { refreshToken, clearTokens } = useAuthStore((s) => ({
+    refreshToken: s.refreshToken,
+    clearTokens: s.clearTokens,
+  }));
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!hydrated) void hydrate();
-  }, [hydrated, hydrate]);
 
   const onLogout = async () => {
     setError(null);

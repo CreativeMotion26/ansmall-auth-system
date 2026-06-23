@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, ScrollView, Text, View } from "react-native";
 import { ApiError, refresh as refreshApi } from "../src/api/client";
 import { RefreshRequestSchema } from "../src/schemas/auth";
@@ -10,21 +10,14 @@ import { z } from "zod";
 
 export default function Refresh() {
   const router = useRouter();
-  const { hydrated, refreshToken, setTokens, clearTokens, hydrate } =
-    useAuthStore((s) => ({
-      hydrated: s.hydrated,
-      refreshToken: s.refreshToken,
-      setTokens: s.setTokens,
-      clearTokens: s.clearTokens,
-      hydrate: s.hydrate,
-    }));
+  const { refreshToken, setTokens, clearTokens } = useAuthStore((s) => ({
+    refreshToken: s.refreshToken,
+    setTokens: s.setTokens,
+    clearTokens: s.clearTokens,
+  }));
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!hydrated) void hydrate();
-  }, [hydrated, hydrate]);
 
   const onRefresh = async () => {
     setError(null);

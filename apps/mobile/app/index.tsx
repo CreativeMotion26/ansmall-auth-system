@@ -1,21 +1,13 @@
 import { Redirect } from "expo-router";
-import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuthStore } from "../src/state/authStore";
 
 export default function Index() {
-  const { hydrated, accessToken, refreshToken, hydrate } = useAuthStore(
-    (s) => ({
-      hydrated: s.hydrated,
-      accessToken: s.accessToken,
-      refreshToken: s.refreshToken,
-      hydrate: s.hydrate,
-    }),
-  );
-
-  useEffect(() => {
-    if (!hydrated) void hydrate();
-  }, [hydrated, hydrate]);
+  const { hydrated, accessToken, refreshToken } = useAuthStore((s) => ({
+    hydrated: s.hydrated,
+    accessToken: s.accessToken,
+    refreshToken: s.refreshToken,
+  }));
 
   if (!hydrated) {
     return (

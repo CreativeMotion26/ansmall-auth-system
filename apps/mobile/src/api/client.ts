@@ -1,8 +1,13 @@
 import { API_BASE_URL } from "../utils/env";
 import {
+  ChangePasswordSchema,
   CredentialsSchema,
+  DeleteAccountSchema,
+  HealthResponseSchema,
+  LogoutAllResponseSchema,
   LogoutResponseSchema,
   MeResponseSchema,
+  MessageResponseSchema,
   RefreshRequestSchema,
   TokenBundleSchema,
   type TokenBundle,
@@ -36,7 +41,7 @@ async function apiRequest<T>({
   validateWith,
 }: {
   path: string;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   accessToken?: string;
   validateWith: (json: unknown) => T;
@@ -45,11 +50,20 @@ async function apiRequest<T>({
   if (body != null) headers["Content-Type"] = "application/json";
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body != null ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      null,
+      `Cannot reach API at ${API_BASE_URL}. Is the gateway running?`,
+    );
+  }
 
   const text = await res.text();
   const json = await parseJsonSafe(text);
@@ -64,6 +78,14 @@ async function apiRequest<T>({
   }
 
   return validateWith(json);
+}
+
+export async function health(): Promise<{ status: string; service: string }> {
+  return apiRequest({
+    path: "/api/health",
+    method: "GET",
+    validateWith: (json) => HealthResponseSchema.parse(json),
+  });
 }
 
 export async function register(input: unknown): Promise<TokenBundle> {
@@ -106,6 +128,17 @@ export async function logout(input: unknown): Promise<{ message: string }> {
   });
 }
 
+export async function logoutAll(
+  accessToken: string,
+): Promise<{ message: string; revoked: number }> {
+  return apiRequest({
+    path: "/api/logout-all",
+    method: "POST",
+    accessToken,
+    validateWith: (json) => LogoutAllResponseSchema.parse(json),
+  });
+}
+
 export async function me(accessToken: string): Promise<{
   user: { id: number; email: string };
 }> {
@@ -117,3 +150,30 @@ export async function me(accessToken: string): Promise<{
   });
 }
 
+export async function changePassword(
+  accessToken: string,
+  input: unknown,
+): Promise<{ message: string }> {
+  const body = ChangePasswordSchema.parse(input);
+  return apiRequest({
+    path: "/api/me/password",
+    method: "PATCH",
+    body,
+    accessToken,
+    validateWith: (json) => MessageResponseSchema.parse(json),
+  });
+}
+
+export async function deleteAccount(
+  accessToken: string,
+  input: unknown,
+): Promise<{ message: string }> {
+  const body = DeleteAccountSchema.parse(input);
+  return apiRequest({
+    path: "/api/me",
+    method: "DELETE",
+    body,
+    accessToken,
+    validateWith: (json) => MessageResponseSchema.parse(json),
+  });
+}

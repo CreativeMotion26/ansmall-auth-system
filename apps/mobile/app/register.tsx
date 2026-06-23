@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Button, ScrollView, Text, TextInput, View } from "react-native";
-import { register } from "../src/api/client";
+import { ApiError, register } from "../src/api/client";
 import { CredentialsSchema } from "../src/schemas/auth";
 import { useAuthStore } from "../src/state/authStore";
 import { ScreenIntro } from "../src/ui/ScreenIntro";
@@ -26,7 +26,9 @@ export default function Register() {
       await setTokens(bundle);
       router.replace("/me");
     } catch (e) {
-      if (e instanceof z.ZodError) {
+      if (e instanceof ApiError) {
+        setError(e.message);
+      } else if (e instanceof z.ZodError) {
         setError(e.issues[0]?.message ?? "Invalid input");
       } else if (e instanceof Error) {
         setError(e.message);

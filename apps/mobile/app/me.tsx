@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Button, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { ApiError, me as meApi, refresh as refreshApi } from "../src/api/client";
@@ -9,18 +9,10 @@ import { shared } from "../src/ui/styles";
 
 export default function Me() {
   const router = useRouter();
-  const { hydrated, accessToken, refreshToken, hydrate, clearTokens } =
-    useAuthStore((s) => ({
-      hydrated: s.hydrated,
-      accessToken: s.accessToken,
-      refreshToken: s.refreshToken,
-      hydrate: s.hydrate,
-      clearTokens: s.clearTokens,
-    }));
-
-  useEffect(() => {
-    if (!hydrated) void hydrate();
-  }, [hydrated, hydrate]);
+  const { accessToken, refreshToken } = useAuthStore((s) => ({
+    accessToken: s.accessToken,
+    refreshToken: s.refreshToken,
+  }));
 
   const queryKey = useMemo(
     () => ["me", accessToken ?? "none"],
@@ -54,11 +46,6 @@ export default function Me() {
     enabled: !!accessToken,
     retry: false,
   });
-
-  const onLogout = async () => {
-    await clearTokens();
-    router.replace("/logout");
-  };
 
   if (!accessToken) {
     return (
@@ -116,7 +103,8 @@ export default function Me() {
         )}
       </View>
 
-      <Button title="POST /api/logout" onPress={onLogout} />
+      <Button title="Account settings" onPress={() => router.push("/account")} />
+      <Button title="POST /api/logout" onPress={() => router.push("/logout")} />
       <Button title="Manual refresh" onPress={() => router.replace("/refresh")} />
     </ScrollView>
   );

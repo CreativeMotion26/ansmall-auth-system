@@ -40,6 +40,23 @@ OpenAPI 3 spec: **[`docs/openapi.yaml`](docs/openapi.yaml)** — import into [Sw
 
 Rate limit: **50 requests / 15 minutes** per IP on `/api/register`, `/api/login`, and `/api/refresh`.
 
+## Mobile app (Expo)
+
+```bash
+npm run dev          # gateway + auth (terminal 1)
+npm run dev:mobile   # Expo (terminal 2)
+```
+
+1. Copy `apps/mobile/.env.example` → `apps/mobile/.env`
+2. Set `EXPO_PUBLIC_API_BASE_URL` to your gateway:
+   - **iOS simulator / web:** `http://localhost:3000`
+   - **Android emulator:** `http://10.0.2.2:3000` (default when unset on Android)
+   - **Physical device:** `http://<your-computer-lan-ip>:3000`
+
+The mobile app calls the same `/api/*` routes via `apps/mobile/src/api/client.ts` and stores tokens in **Expo SecureStore**.
+
+Screens: login, register, me (auto-refresh), refresh, logout, account (password / logout-all / delete).
+
 ## Layout
 
 - `services/auth/` — auth microservice (API + SQLite)
